@@ -7,8 +7,9 @@ import { AddSpaceForm } from "./AddSpaceForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { PlusCircle, Wallet, Car, AlertTriangle, Camera, Trash2 } from "lucide-react";
+import { PlusCircle, Wallet, Car, AlertTriangle, Camera, Trash2, ScanLine } from "lucide-react";
 import { toast } from "sonner";
+import { QRScannerModal } from "./QRScannerModal";
 
 export function OwnerDashboard() {
   const { spots, bookings, addOverstayReport, removeSpot, userInfo } = useAppContext();
@@ -16,6 +17,7 @@ export function OwnerDashboard() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [overstayImage, setOverstayImage] = useState<string | null>(null);
   const [activeBookings, setActiveBookings] = useState<any[]>([]);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     if (!userInfo?.id) return;
@@ -79,7 +81,16 @@ export function OwnerDashboard() {
         <h2 className="text-2xl font-extrabold flex items-center gap-2">Homeowner Dashboard</h2>
         <p className="text-muted-foreground text-sm font-medium mt-1">Earn money from your empty home parking space.</p>
       </div>
-      <div className="grid grid-cols-1 gap-4">
+
+      <Button 
+        className="w-full h-20 text-xl font-black tracking-wide shadow-[0_10px_30px_rgba(0,102,255,0.4)] hover:shadow-[0_15px_40px_rgba(0,102,255,0.6)] hover:-translate-y-1 transition-all rounded-2xl border-b-4 border-primary-foreground/20 active:translate-y-0 active:border-b-0"
+        onClick={() => setIsScannerOpen(true)}
+      >
+        <ScanLine className="mr-3" size={28} />
+        SCAN VEHICLE QR
+      </Button>
+
+      <div className="grid grid-cols-1 gap-4 mt-2">
         <Card className="bg-primary/10 border-primary/20 shadow-lg shadow-primary/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
@@ -217,6 +228,8 @@ export function OwnerDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <QRScannerModal open={isScannerOpen} onOpenChange={setIsScannerOpen} />
     </div>
   );
 }

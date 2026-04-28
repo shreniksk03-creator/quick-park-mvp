@@ -33,16 +33,37 @@ export async function POST(req: Request) {
       const amountTotal = session.amount_total;
 
       if (metadata && metadata.driverId && metadata.ownerId && amountTotal) {
-        const { error } = await supabase.from('transactions').insert([{
+        const qrHash = Math.random().toString(36).substring(2, 10).toUpperCase();
+        
+        // Insert transaction record for the owner
+        const { error: txError } = await supabase.from('transactions').insert([{
           driver_id: metadata.driverId,
           owner_id: metadata.ownerId,
           amount: amountTotal / 100, // convert back from paise/cents to standard unit
           status: 'completed'
         }]);
 
-        if (error) {
-          console.error("Failed to insert transaction into Supabase:", error);
-          return NextResponse.json({ error: 'Database insert failed' }, { status: 500 });
+        if (txError) {
+          console.error("Failed to insert transaction into Supabase:", txError);
+          return NextResponse.json({ error: 'Transaction insert failed' }, { status: 500 });
+        }
+
+        // Insert booking record
+        if (metadata.parkingSpaceId) {
+          const { error: bookingError } = await supabase.from('bookings').insert([{
+            space_id: metadata.parkingSpaceId,
+            driver_id: metadata.driverId,
+            start_time: new Date().toISOString(),
+            duration_hours: parseInt(metadata.hours || "1", 10),
+            total_paid: amountTotal / 100,
+            status: 'active',
+            qr_code_hash: qrHash
+          }]);
+
+          if (bookingError) {
+            console.error("Failed to insert booking into Supabase:", bookingError);
+            return NextResponse.json({ error: 'Booking insert failed' }, { status: 500 });
+          }
         }
       }
     }

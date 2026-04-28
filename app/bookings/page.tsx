@@ -8,11 +8,26 @@ import { Clock, Calendar, CheckCircle2, History, Car, User, Phone } from "lucide
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export default function BookingsPage() {
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
+
+function BookingsContent() {
   const { userInfo, role } = useAppContext();
   const [dbBookings, setDbBookings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (searchParams.get("success") === "true") {
+      toast.success("Payment successful! Your booking is confirmed.");
+      router.replace("/bookings");
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!userInfo?.id) return;
@@ -69,7 +84,7 @@ export default function BookingsPage() {
       }
     };
     fetchBookings();
-  }, [userInfo?.id, role]);
+  }, [userInfo?.id, role, refreshKey]);
 
   const handleEndSession = async (bookingId: string) => {
     if (!window.confirm("Are you sure you want to end your parking session early? You will not be refunded for unused time.")) {
@@ -252,5 +267,13 @@ export default function BookingsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function BookingsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+      <BookingsContent />
+    </Suspense>
   );
 }

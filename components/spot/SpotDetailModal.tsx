@@ -52,7 +52,8 @@ export function SpotDetailModal({
           amount: total,
           driverId: userInfo.id,
           ownerId: spot.ownerId,
-          spotName: spot.name
+          spotName: spot.name,
+          hours: hours
         })
       });
 

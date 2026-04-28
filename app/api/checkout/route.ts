@@ -7,7 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
 
 export async function POST(req: Request) {
   try {
-    const { parkingSpaceId, amount, driverId, ownerId, spotName } = await req.json();
+    const { parkingSpaceId, amount, driverId, ownerId, spotName, hours } = await req.json();
 
     if (!parkingSpaceId || !amount || !driverId || !ownerId) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
         parkingSpaceId,
         driverId,
         ownerId,
+        hours: hours?.toString() || "1",
       },
     });
 
