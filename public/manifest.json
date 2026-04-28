@@ -1,0 +1,16 @@
+{
+  "name": "Quick Park",
+  "short_name": "QuickPark",
+  "description": "Peer-to-peer parking marketplace",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#0070f3",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
