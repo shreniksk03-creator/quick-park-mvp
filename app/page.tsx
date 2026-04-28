@@ -1,122 +1,238 @@
 "use client";
 
-import { useEffect, useState, Suspense } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useAppContext } from "@/context/AppContext";
+import { ParkingSpot } from "@/lib/mockData";
+import { SpotCard } from "@/components/spot/SpotCard";
+import { SpotDetailModal } from "@/components/spot/SpotDetailModal";
+import { Map, List, Navigation } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from "@react-google-maps/api";
+import { toast } from "sonner";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+const mapContainerStyle = {
+  width: "100%",
+  height: "100%",
+};
 
-// 🚦 This is our Traffic Cop component! It reads the URL and shows the right screen.
-function DashboardContent({ session }: { session: any }) {
-  const searchParams = useSearchParams();
-  const view = searchParams.get('view') || 'home';
+const defaultCenter = {
+  lat: 12.9716,
+  lng: 77.5946,
+};
 
-  if (view === 'map') {
-    const parkingSpots = [
-      { id: 1, name: "Downtown Plaza Lot", distance: "0.2 miles away", price: "$5.00 / hr", spotsLeft: 3 },
-      { id: 2, name: "Central Station Garage", distance: "0.5 miles away", price: "$8.00 / hr", spotsLeft: 12 },
-      { id: 3, name: "Street Parking - 5th Ave", distance: "0.8 miles away", price: "$2.50 / hr", spotsLeft: 1 },
-    ];
-
-    return (
-      <div style={{ width: '100%', maxWidth: '400px', padding: '0 20px' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>📍 Find a Spot</h2>
-
-        {parkingSpots.map((spot) => (
-          <div key={spot.id} style={{ border: '1px solid #ddd', borderRadius: '10px', padding: '15px', marginBottom: '15px', backgroundColor: '#fff', color: '#333' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '18px' }}>{spot.name}</h3>
-              <span style={{ fontWeight: 'bold', color: '#28a745' }}>{spot.price}</span>
-            </div>
-            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>🚗 {spot.distance}</p>
-            <p style={{ margin: '5px 0', fontSize: '14px', color: spot.spotsLeft < 5 ? '#dc3545' : '#666' }}>
-              Only {spot.spotsLeft} spots left!
-            </p>
-
-            <button style={{ width: '100%', padding: '10px', marginTop: '10px', backgroundColor: '#000', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}>
-              Book & Pay
-            </button>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (view === 'bookings') {
-    return (
-      <div style={{ textAlign: 'center' }}>
-        <h1>🎫 My Bookings</h1>
-        <p>Your active and past parking reservations will show here.</p>
-      </div>
-    );
-  }
-
-  if (view === 'profile') {
-    return (
-      <div style={{ textAlign: 'center' }}>
-        <h1>👤 Profile Settings</h1>
-        <p>Logged in as: <b>{session.user.email}</b></p>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          style={{ marginTop: '20px', padding: '10px 20px', backgroundColor: '#dc3545', color: 'white', borderRadius: '5px', cursor: 'pointer' }}
-        >
-          Sign Out
-        </button>
-      </div>
-    );
-  }
-
-  // Default Home View
-  // Default Home View
-  return (
-    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '0 20px' }}>
-      <h1>🚗 Quick Park Dashboard</h1>
-      <p style={{ fontSize: '18px', margin: 0 }}>
-        Welcome back, <br />
-        <b style={{ color: '#4285F4' }}>{session.user.email}</b>!
-      </p>
-
-      <div style={{ backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '15px', marginTop: '20px', width: '100%', maxWidth: '350px', border: '1px solid #333' }}>
-        <h3 style={{ margin: '0 0 10px 0', color: 'white' }}>Ready to park?</h3>
-        <p style={{ margin: 0, color: '#aaa', fontSize: '14px' }}>Tap the Map icon below to find and book your spot instantly.</p>
-      </div>
-    </div>
-  );
-}
+const darkModeStyles = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
+];
 
 export default function Home() {
-  const [session, setSession] = useState<any>(null);
+  const { spots, role, bookings, setPreviousDues } = useAppContext();
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+
+  const router = useRouter();
+  const [selectedSpot, setSelectedSpot] = useState<ParkingSpot | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+  });
+
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [center, setCenter] = useState(defaultCenter);
+  const [activeMarker, setActiveMarker] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
-    return () => subscription.unsubscribe();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("view") === "map") {
+        setViewMode("map");
+      }
+    }
   }, []);
 
-  // 🟢 IF LOGGED IN: Show the Dashboard with the Traffic Cop
-  if (session) {
-    return (
-      <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '20px', paddingBottom: '80px' }}>
-        {/* Suspense is required by Next.js when reading URLs */}
-        <Suspense fallback={<p>Loading view...</p>}>
-          <DashboardContent session={session} />
-        </Suspense>
-      </main>
-    );
-  }
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCenter({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        () => {
+          console.warn("Geolocation denied or failed, using default center.");
+        }
+      );
+    }
+  }, []);
 
-  // 🔴 IF NOT LOGGED IN: Show Login Button
+  const onLoad = useCallback(function callback(map: google.maps.Map) {
+    mapRef.current = map;
+  }, []);
+
+  const onUnmount = useCallback(function callback(map: google.maps.Map) {
+    mapRef.current = null;
+  }, []);
+
+  const handleMyLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newPos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setCenter(newPos);
+          mapRef.current?.panTo(newPos);
+          mapRef.current?.setZoom(15);
+        }
+      );
+    }
+  };
+
+  const handleSpotClick = (spot: ParkingSpot) => {
+    setSelectedSpot(spot);
+    setIsDetailOpen(true);
+  };
+
+  const handleBookingComplete = (bookingId: string) => {
+    toast.success("Booking Confirmed! Drive safely.");
+    router.push("/bookings");
+  };
+
   return (
-    <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}>
-      <h1>Welcome to Quick Park 🚗</h1>
-      <button
-        onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}` } })}
-        style={{ padding: '12px 24px', backgroundColor: '#4285F4', color: 'white', borderRadius: '5px', cursor: 'pointer', fontSize: '16px' }}
+    <main className="flex-1 relative pb-24 h-full bg-background flex flex-col">
+      <div className="pt-14 pb-5 px-6 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-20 w-full flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
+            Nearby Driveways
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1.5 font-medium">
+            Find exact coordinates to available host paths
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 w-full relative z-0">
+        {viewMode === "list" ? (
+          <div className="p-6 space-y-6 relative z-10">
+            {spots.map((spot) => (
+              <SpotCard key={spot.id} spot={spot} onClick={() => handleSpotClick(spot)} />
+            ))}
+          </div>
+        ) : (
+          <div className="w-full absolute inset-0 bg-[#0a0a0a] flex items-center justify-center flex-col overflow-hidden">
+            {!isLoaded ? (
+              <div className="text-primary text-sm font-bold uppercase tracking-widest animate-pulse">
+                Loading Map...
+              </div>
+            ) : (
+              <>
+                <GoogleMap
+                  mapContainerStyle={mapContainerStyle}
+                  center={center}
+                  zoom={14}
+                  onLoad={onLoad}
+                  onUnmount={onUnmount}
+                  options={{
+                    styles: darkModeStyles,
+                    disableDefaultUI: true,
+                    zoomControl: true,
+                  }}
+                  onClick={() => setActiveMarker(null)}
+                >
+                  {spots.map((spot) => (
+                    spot.coordinates && (
+                      <Marker
+                        key={spot.id}
+                        position={{ lat: spot.coordinates.lat, lng: spot.coordinates.lng }}
+                        onClick={() => setActiveMarker(spot.id)}
+                        icon={{
+                          path: google.maps.SymbolPath.CIRCLE,
+                          scale: 10,
+                          fillColor: "#0066FF",
+                          fillOpacity: 1,
+                          strokeColor: "#ffffff",
+                          strokeWeight: 2,
+                        }}
+                      >
+                        {activeMarker === spot.id && (
+                          <InfoWindow
+                            onCloseClick={() => setActiveMarker(null)}
+                            options={{ pixelOffset: new google.maps.Size(0, -10) }}
+                          >
+                            <div className="bg-background p-2 rounded-md shadow-md border border-border text-foreground flex flex-col items-center gap-2 min-w-[140px]">
+                              {spot.image ? (
+                                <img src={spot.image} className="w-full h-20 object-cover rounded-sm mb-1" alt="Spot" />
+                              ) : (
+                                <div className="w-full h-20 bg-gray-800 flex items-center justify-center rounded-sm mb-1">
+                                  <span className="text-xs text-gray-400">No Image</span>
+                                </div>
+                              )}
+                              <p className="text-sm font-bold m-0 p-0 text-black">₹{spot.basePricePerHour}/hr</p>
+                              <Button
+                                size="sm"
+                                className="w-full h-8 text-xs bg-primary hover:bg-primary/90 text-white"
+                                onClick={() => handleSpotClick(spot)}
+                              >
+                                Book Now
+                              </Button>
+                            </div>
+                          </InfoWindow>
+                        )}
+                      </Marker>
+                    )
+                  ))}
+                </GoogleMap>
+                <Button
+                  size="icon"
+                  className="absolute bottom-32 right-6 h-12 w-12 rounded-full shadow-lg bg-background text-foreground hover:bg-muted border border-border z-10"
+                  onClick={handleMyLocation}
+                >
+                  <Navigation size={20} className="text-primary" />
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Floating View Toggle */}
+      <Button
+        size="icon"
+        className="fixed bottom-24 right-6 h-16 w-16 rounded-full shadow-[0_8px_30px_rgba(0,102,255,0.6)] bg-primary hover:bg-primary/90 z-50 transition-transform active:scale-95"
+        onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}
       >
-        Sign in with Google
-      </button>
+        {viewMode === "list" ? <Map size={28} /> : <List size={28} />}
+      </Button>
+
+      {/* Modals */}
+      <SpotDetailModal
+        spot={selectedSpot}
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+        onBookingComplete={handleBookingComplete}
+      />
     </main>
   );
 }
+
