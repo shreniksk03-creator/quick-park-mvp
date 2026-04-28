@@ -14,10 +14,32 @@ function DashboardContent({ session }: { session: any }) {
   const view = searchParams.get('view') || 'home';
 
   if (view === 'map') {
+    const parkingSpots = [
+      { id: 1, name: "Downtown Plaza Lot", distance: "0.2 miles away", price: "$5.00 / hr", spotsLeft: 3 },
+      { id: 2, name: "Central Station Garage", distance: "0.5 miles away", price: "$8.00 / hr", spotsLeft: 12 },
+      { id: 3, name: "Street Parking - 5th Ave", distance: "0.8 miles away", price: "$2.50 / hr", spotsLeft: 1 },
+    ];
+
     return (
-      <div style={{ textAlign: 'center' }}>
-        <h1>🗺️ Quick Park Map</h1>
-        <p>This is where the interactive parking map will go!</p>
+      <div style={{ width: '100%', maxWidth: '400px', padding: '0 20px' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>📍 Find a Spot</h2>
+
+        {parkingSpots.map((spot) => (
+          <div key={spot.id} style={{ border: '1px solid #ddd', borderRadius: '10px', padding: '15px', marginBottom: '15px', backgroundColor: '#fff', color: '#333' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '18px' }}>{spot.name}</h3>
+              <span style={{ fontWeight: 'bold', color: '#28a745' }}>{spot.price}</span>
+            </div>
+            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>🚗 {spot.distance}</p>
+            <p style={{ margin: '5px 0', fontSize: '14px', color: spot.spotsLeft < 5 ? '#dc3545' : '#666' }}>
+              Only {spot.spotsLeft} spots left!
+            </p>
+
+            <button style={{ width: '100%', padding: '10px', marginTop: '10px', backgroundColor: '#000', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}>
+              Book & Pay
+            </button>
+          </div>
+        ))}
       </div>
     );
   }
@@ -47,10 +69,19 @@ function DashboardContent({ session }: { session: any }) {
   }
 
   // Default Home View
+  // Default Home View
   return (
-    <div style={{ textAlign: 'center' }}>
-      <h1>🏠 Home Dashboard</h1>
-      <p>Welcome back! Let's find you a parking spot.</p>
+    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '0 20px' }}>
+      <h1>🚗 Quick Park Dashboard</h1>
+      <p style={{ fontSize: '18px', margin: 0 }}>
+        Welcome back, <br />
+        <b style={{ color: '#4285F4' }}>{session.user.email}</b>!
+      </p>
+
+      <div style={{ backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '15px', marginTop: '20px', width: '100%', maxWidth: '350px', border: '1px solid #333' }}>
+        <h3 style={{ margin: '0 0 10px 0', color: 'white' }}>Ready to park?</h3>
+        <p style={{ margin: 0, color: '#aaa', fontSize: '14px' }}>Tap the Map icon below to find and book your spot instantly.</p>
+      </div>
     </div>
   );
 }
