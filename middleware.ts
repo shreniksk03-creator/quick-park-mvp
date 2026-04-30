@@ -34,7 +34,12 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup');
 
   if (user && isAuthPage) {
-    return NextResponse.redirect(new URL('/', request.url));
+    const redirectResponse = NextResponse.redirect(new URL('/', request.url));
+    // Copy any cookies set during getUser() to the redirect response
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
   }
 
   return supabaseResponse;
