@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, Calendar, CheckCircle2, History, Car, User, Phone } from "lucide-react";
+import { Clock, Calendar, CheckCircle2, History, Car, User, Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import QRCode from "react-qr-code";
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
@@ -18,16 +19,31 @@ function BookingsContent() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptBookingId, setReceiptBookingId] = useState<string | null>(null);
+
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
     if (searchParams.get("success") === "true") {
-      toast.success("Payment successful! Your booking is confirmed.");
-      router.replace("/bookings");
+      const bId = searchParams.get("bookingId");
+      if (bId) {
+        setReceiptBookingId(bId);
+        setShowReceiptModal(true);
+      } else {
+        toast.success("Payment Received");
+        router.replace("/bookings");
+      }
       setRefreshKey(prev => prev + 1);
     }
   }, [searchParams, router]);
+
+  const handleCloseReceipt = () => {
+    setShowReceiptModal(false);
+    setReceiptBookingId(null);
+    router.replace("/bookings");
+  };
 
   useEffect(() => {
     if (!userInfo?.id) return;
@@ -106,8 +122,10 @@ function BookingsContent() {
   const activeBookings = dbBookings.filter(b => b.status === 'active' || b.status === 'overstay');
   const pastBookings = dbBookings.filter(b => b.status === 'completed' || b.status === 'cancelled');
 
+  const receiptBooking = dbBookings.find(b => b.id === receiptBookingId);
+
   return (
-    <main className="flex-1 pb-24 h-full bg-background flex flex-col">
+    <main className="flex-1 pb-24 h-full bg-background flex flex-col relative">
       <div className="pt-14 pb-5 px-6 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 w-full">
         <h1 className="text-3xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
           {role === 'owner' ? "Recent Booked" : "My Bookings"}
@@ -266,6 +284,65 @@ function BookingsContent() {
           </div>
         )}
       </div>
+
+      {showReceiptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-background border border-border w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            <div className="bg-green-500/10 p-5 text-center border-b border-green-500/20 relative">
+              <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-green-500/30">
+                <CheckCircle2 size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-green-500">Booking Confirmed!</h2>
+              <p className="text-xs text-muted-foreground mt-1">Show this digital receipt to the owner</p>
+            </div>
+            
+            <div className="p-6 flex flex-col items-center">
+              <div className="w-48 h-48 bg-white p-3 rounded-xl shadow-inner mb-6 border border-gray-200">
+                {receiptBookingId ? (
+                  <QRCode value={receiptBookingId} size={100} style={{ height: "auto", maxWidth: "100%", width: "100%" }} viewBox={`0 0 256 256`} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">Loading QR...</div>
+                )}
+              </div>
+
+              {receiptBooking ? (
+                <div className="w-full space-y-3">
+                  <div className="flex justify-between items-center pb-3 border-b border-border/50">
+                    <span className="text-muted-foreground text-sm font-medium">Booking ID</span>
+                    <span className="font-mono text-sm font-bold uppercase">{receiptBooking.id.split('-')[0]}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-3 border-b border-border/50">
+                    <span className="text-muted-foreground text-sm font-medium">Amount Paid</span>
+                    <span className="font-bold text-primary">₹{Number(receiptBooking.total_paid).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-3 border-b border-border/50">
+                    <span className="text-muted-foreground text-sm font-medium">Date & Time</span>
+                    <span className="font-bold text-sm text-right">
+                      {new Date(receiptBooking.start_time).toLocaleDateString()}<br/>
+                      {new Date(receiptBooking.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-muted-foreground text-sm font-medium">Duration</span>
+                    <span className="font-bold text-sm">{receiptBooking.duration_hours} Hour{receiptBooking.duration_hours > 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full space-y-4 animate-pulse">
+                  <div className="h-4 bg-muted rounded w-full"></div>
+                  <div className="h-4 bg-muted rounded w-3/4 mx-auto"></div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-border bg-muted/30">
+              <Button onClick={handleCloseReceipt} className="w-full h-12 font-bold text-md rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                Close & View Bookings
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -277,3 +354,4 @@ export default function BookingsPage() {
     </Suspense>
   );
 }
+

@@ -62,6 +62,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     };
 
     const initAuth = async () => {
+      // 2000ms hard-stop fail-safe timeout
+      const timeoutId = setTimeout(() => {
+        if (mounted) {
+          console.warn("Auth check timed out! Forcing UI unfreeze.");
+          setIsVerifying(false);
+        }
+      }, 2000);
+
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -69,6 +77,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("Error getting session:", err);
         if (mounted) setIsVerifying(false);
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 

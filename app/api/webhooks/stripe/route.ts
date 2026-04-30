@@ -48,21 +48,23 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: 'Transaction insert failed' }, { status: 500 });
         }
 
-        // Insert booking record
+        // Insert booking record if it wasn't already created proactively
         if (metadata.parkingSpaceId) {
-          const { error: bookingError } = await supabase.from('bookings').insert([{
-            space_id: metadata.parkingSpaceId,
-            driver_id: metadata.driverId,
-            start_time: new Date().toISOString(),
-            duration_hours: parseInt(metadata.hours || "1", 10),
-            total_paid: amountTotal / 100,
-            status: 'active',
-            qr_code_hash: qrHash
-          }]);
+          if (!metadata.bookingId) {
+            const { error: bookingError } = await supabase.from('bookings').insert([{
+              space_id: metadata.parkingSpaceId,
+              driver_id: metadata.driverId,
+              start_time: new Date().toISOString(),
+              duration_hours: parseInt(metadata.hours || "1", 10),
+              total_paid: amountTotal / 100,
+              status: 'active',
+              qr_code_hash: qrHash
+            }]);
 
-          if (bookingError) {
-            console.error("Failed to insert booking into Supabase:", bookingError);
-            return NextResponse.json({ error: 'Booking insert failed' }, { status: 500 });
+            if (bookingError) {
+              console.error("Failed to insert booking into Supabase:", bookingError);
+              return NextResponse.json({ error: 'Booking insert failed' }, { status: 500 });
+            }
           }
         }
       }
