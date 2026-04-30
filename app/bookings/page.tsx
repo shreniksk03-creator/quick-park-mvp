@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, Calendar, CheckCircle2, History, Car, User, Phone, X } from "lucide-react";
+import { Clock, Calendar, CheckCircle2, History, Car, User, Phone, X, QrCode, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import QRCode from "react-qr-code";
+import { ReceiptModal } from "@/components/bookings/ReceiptModal";
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
@@ -42,7 +42,9 @@ function BookingsContent() {
   const handleCloseReceipt = () => {
     setShowReceiptModal(false);
     setReceiptBookingId(null);
-    router.replace("/bookings");
+    if (searchParams.get("success") === "true") {
+      router.replace("/bookings");
+    }
   };
 
   useEffect(() => {
@@ -212,21 +214,38 @@ function BookingsContent() {
                             </div>
                           </div>
 
-                          <div className="mt-4 pt-4 border-t border-border border-dashed flex gap-2">
+                          <div className="mt-4 pt-4 border-t border-border border-dashed grid grid-cols-2 gap-2">
+                             {role === 'driver' && (
+                               <>
+                                 <Button 
+                                   onClick={() => { setReceiptBookingId(booking.id); setShowReceiptModal(true); }} 
+                                   className="flex-1 font-bold text-sm h-auto py-2.5 bg-primary/10 text-primary hover:bg-primary/20 shadow-sm border border-primary/20 transition-all"
+                                 >
+                                   <QrCode size={16} className="mr-2"/> Show QR
+                                 </Button>
+                                 {booking.parking_spaces?.latitude && booking.parking_spaces?.longitude ? (
+                                   <a href={`https://www.google.com/maps/dir/?api=1&destination=${booking.parking_spaces.latitude},${booking.parking_spaces.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 shadow-sm border border-blue-500/20 transition-all">
+                                     <MapPin size={16}/> Navigate
+                                   </a>
+                                 ) : (
+                                   <Button disabled variant="outline" className="flex-1 font-bold text-sm h-auto py-2.5 opacity-50">
+                                     <MapPin size={16} className="mr-2"/> Navigate
+                                   </Button>
+                                 )}
+                                 {hostPhone && (
+                                   <a href={`tel:${hostPhone}`} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm bg-muted text-muted-foreground hover:bg-muted/80 shadow-sm border border-border transition-all">
+                                     <Phone size={16}/> Call Host
+                                   </a>
+                                 )}
+                                 <Button onClick={() => handleEndSession(booking.id)} variant="outline" className="flex-1 border-red-500/50 text-red-500 hover:bg-red-500/10 font-bold transition-all h-auto py-2.5">
+                                   End & Leave
+                                 </Button>
+                               </>
+                             )}
                              {role === 'owner' && driverPhone && (
-                                <a href={`tel:${driverPhone}`} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold transition-all text-sm ${isOverstay ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 shadow-sm border border-red-500/20' : 'bg-primary/10 text-primary hover:bg-primary/20 shadow-sm border border-primary/20'}`}>
+                                <a href={`tel:${driverPhone}`} className={`col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold transition-all text-sm ${isOverstay ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 shadow-sm border border-red-500/20' : 'bg-primary/10 text-primary hover:bg-primary/20 shadow-sm border border-primary/20'}`}>
                                   <Phone size={16}/> Call Driver {isOverstay && "(Overstayed)"}
                                 </a>
-                             )}
-                             {role === 'driver' && hostPhone && (
-                                <a href={`tel:${hostPhone}`} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm bg-primary/10 text-primary hover:bg-primary/20 shadow-sm border border-primary/20 transition-all">
-                                  <Phone size={16}/> Call Host
-                                </a>
-                             )}
-                             {role === 'driver' && (
-                               <Button onClick={() => handleEndSession(booking.id)} variant="outline" className="flex-1 border-red-500/50 text-red-500 hover:bg-red-500/10 font-bold transition-all h-auto py-2.5">
-                                 End & Leave
-                               </Button>
                              )}
                           </div>
                         </CardContent>
@@ -285,64 +304,12 @@ function BookingsContent() {
         )}
       </div>
 
-      {showReceiptModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-background border border-border w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-            <div className="bg-green-500/10 p-5 text-center border-b border-green-500/20 relative">
-              <div className="w-12 h-12 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-green-500/30">
-                <CheckCircle2 size={24} />
-              </div>
-              <h2 className="text-xl font-bold text-green-500">Booking Confirmed!</h2>
-              <p className="text-xs text-muted-foreground mt-1">Show this digital receipt to the owner</p>
-            </div>
-            
-            <div className="p-6 flex flex-col items-center">
-              <div className="w-48 h-48 bg-white p-3 rounded-xl shadow-inner mb-6 border border-gray-200">
-                {receiptBookingId ? (
-                  <QRCode value={receiptBookingId} size={100} style={{ height: "auto", maxWidth: "100%", width: "100%" }} viewBox={`0 0 256 256`} />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">Loading QR...</div>
-                )}
-              </div>
-
-              {receiptBooking ? (
-                <div className="w-full space-y-3">
-                  <div className="flex justify-between items-center pb-3 border-b border-border/50">
-                    <span className="text-muted-foreground text-sm font-medium">Booking ID</span>
-                    <span className="font-mono text-sm font-bold uppercase">{receiptBooking.id.split('-')[0]}</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-3 border-b border-border/50">
-                    <span className="text-muted-foreground text-sm font-medium">Amount Paid</span>
-                    <span className="font-bold text-primary">₹{Number(receiptBooking.total_paid).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-3 border-b border-border/50">
-                    <span className="text-muted-foreground text-sm font-medium">Date & Time</span>
-                    <span className="font-bold text-sm text-right">
-                      {new Date(receiptBooking.start_time).toLocaleDateString()}<br/>
-                      {new Date(receiptBooking.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center pt-1">
-                    <span className="text-muted-foreground text-sm font-medium">Duration</span>
-                    <span className="font-bold text-sm">{receiptBooking.duration_hours} Hour{receiptBooking.duration_hours > 1 ? 's' : ''}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full space-y-4 animate-pulse">
-                  <div className="h-4 bg-muted rounded w-full"></div>
-                  <div className="h-4 bg-muted rounded w-3/4 mx-auto"></div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-border bg-muted/30">
-              <Button onClick={handleCloseReceipt} className="w-full h-12 font-bold text-md rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-                Close & View Bookings
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReceiptModal 
+        show={showReceiptModal} 
+        onClose={handleCloseReceipt} 
+        bookingId={receiptBookingId} 
+        bookingData={receiptBooking} 
+      />
     </main>
   );
 }
