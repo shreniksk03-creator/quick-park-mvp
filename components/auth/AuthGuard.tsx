@@ -12,6 +12,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isVerifying, setIsVerifying] = useState(true);
 
   useEffect(() => {
+    // Clear residual Supabase PKCE hash fragments to prevent Next.js client-side loops
+    if (typeof window !== "undefined" && window.location.hash) {
+      if (window.location.hash.includes("error=") || window.location.hash.includes("access_token=")) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    }
+
     let mounted = true;
 
     const checkSession = async (session: any) => {

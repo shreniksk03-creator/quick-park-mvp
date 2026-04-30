@@ -12,6 +12,56 @@ import { ReceiptModal } from "@/components/bookings/ReceiptModal";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 
+function LiveTimer({ startedAt, durationHours, role }: { startedAt: string | null, durationHours: number, role: string }) {
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!startedAt) return;
+    
+    const durationMs = durationHours * 3600000;
+    const endTime = new Date(startedAt).getTime() + durationMs;
+    
+    const updateTimer = () => {
+      const now = Date.now();
+      const diff = endTime - now;
+      if (diff <= 0) {
+        setRemaining(0);
+      } else {
+        setRemaining(Math.floor(diff / 1000));
+      }
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [startedAt, durationHours]);
+
+  useEffect(() => {
+    if (role === 'driver' && remaining === 300) {
+      toast.warning('Your parking session ends in 5 minutes!');
+    }
+  }, [remaining, role]);
+
+  if (!startedAt) {
+    return <span className="text-yellow-500 font-bold text-[10px] animate-pulse">Awaiting scan...</span>;
+  }
+
+  if (remaining === null) return null;
+  if (remaining <= 0) return <span className="text-red-500 font-bold text-[10px]">Overstayed</span>;
+
+  const h = Math.floor(remaining / 3600).toString().padStart(2, '0');
+  const m = Math.floor((remaining % 3600) / 60).toString().padStart(2, '0');
+  const s = (remaining % 60).toString().padStart(2, '0');
+  
+  const isWarning = remaining <= 300;
+
+  return (
+    <span className={`font-mono font-bold text-[11px] ${isWarning ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
+      {h}:{m}:{s} remaining
+    </span>
+  );
+}
+
 function BookingsContent() {
   const { userInfo, role } = useAppContext();
   const [dbBookings, setDbBookings] = useState<any[]>([]);
@@ -121,7 +171,7 @@ function BookingsContent() {
     }
   };
 
-  const activeBookings = dbBookings.filter(b => b.status === 'active' || b.status === 'overstay');
+  const activeBookings = dbBookings.filter(b => b.status === 'active' || b.status === 'overstay' || b.status === 'paid');
   const pastBookings = dbBookings.filter(b => b.status === 'completed' || b.status === 'cancelled');
 
   const receiptBooking = dbBookings.find(b => b.id === receiptBookingId);
@@ -174,10 +224,10 @@ function BookingsContent() {
                     const driverPhone = booking.driver?.phone_number || "";
                     const hostPhone = booking.parking_spaces?.owner?.phone_number || "";
 
-                    const startTimeMs = new Date(booking.start_time).getTime();
+                    const startTimeMs = booking.started_at ? new Date(booking.started_at).getTime() : new Date(booking.start_time).getTime();
                     const durationMs = booking.duration_hours * 60 * 60 * 1000;
                     const endTimeMs = startTimeMs + durationMs;
-                    const isOverstay = Date.now() > endTimeMs;
+                    const isOverstay = booking.started_at && Date.now() > endTimeMs;
 
                     return (
                       <Card key={booking.id} className="border-primary/30 bg-primary/5 shadow-md shadow-primary/5">
@@ -188,8 +238,11 @@ function BookingsContent() {
                               <h3 className="font-bold text-lg leading-tight">{role === 'owner' ? driverName : spotTitle}</h3>
                               {role === 'owner' && <p className="text-xs font-bold text-muted-foreground mt-1 flex items-center gap-1"><Car size={12}/> {carNumber}</p>}
                             </div>
-                            <div className="px-2 py-1 bg-green-500/10 text-green-500 text-[10px] font-bold rounded border border-green-500/20 uppercase">
-                              Active
+                            <div className="flex flex-col items-end">
+                              <div className="px-2 py-1 bg-green-500/10 text-green-500 text-[10px] font-bold rounded border border-green-500/20 uppercase mb-1">
+                                {booking.status === 'paid' ? 'Paid' : 'Active'}
+                              </div>
+                              <LiveTimer startedAt={booking.started_at} durationHours={booking.duration_hours} role={role} />
                             </div>
                           </div>
                           
@@ -219,19 +272,10 @@ function BookingsContent() {
                                <>
                                  <Button 
                                    onClick={() => { setReceiptBookingId(booking.id); setShowReceiptModal(true); }} 
-                                   className="flex-1 font-bold text-sm h-auto py-2.5 bg-primary/10 text-primary hover:bg-primary/20 shadow-sm border border-primary/20 transition-all"
+                                   className="col-span-2 font-bold text-sm h-auto py-2.5 bg-primary/10 text-primary hover:bg-primary/20 shadow-sm border border-primary/20 transition-all"
                                  >
-                                   <QrCode size={16} className="mr-2"/> Show QR
+                                   <QrCode size={16} className="mr-2"/> Show QR & Details
                                  </Button>
-                                 {booking.parking_spaces?.latitude && booking.parking_spaces?.longitude ? (
-                                   <a href={`https://www.google.com/maps/dir/?api=1&destination=${booking.parking_spaces.latitude},${booking.parking_spaces.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 shadow-sm border border-blue-500/20 transition-all">
-                                     <MapPin size={16}/> Navigate
-                                   </a>
-                                 ) : (
-                                   <Button disabled variant="outline" className="flex-1 font-bold text-sm h-auto py-2.5 opacity-50">
-                                     <MapPin size={16} className="mr-2"/> Navigate
-                                   </Button>
-                                 )}
                                  {hostPhone && (
                                    <a href={`tel:${hostPhone}`} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm bg-muted text-muted-foreground hover:bg-muted/80 shadow-sm border border-border transition-all">
                                      <Phone size={16}/> Call Host

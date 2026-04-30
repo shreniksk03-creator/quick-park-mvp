@@ -34,7 +34,17 @@ export function QRScannerModal({ open, onOpenChange }: { open: boolean; onOpenCh
         return;
       }
 
-      if (data.status === "active" || data.status === "overstay") {
+      if (data.status === "paid") {
+        const { error: updateError } = await supabase
+          .from("bookings")
+          .update({ status: 'active', started_at: new Date().toISOString() })
+          .eq("id", result);
+          
+        if (updateError) throw updateError;
+        
+        setBookingData(data);
+        setScanResult("success");
+      } else if (data.status === "active" || data.status === "overstay") {
         setBookingData(data);
         setScanResult("success");
       } else {

@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       start_time: new Date().toISOString(),
       duration_hours: parseInt(hours?.toString() || "1", 10),
       total_paid: amount,
-      status: 'active',
+      status: 'paid',
       qr_code_hash: qrHash
     }]).select('id').single();
 

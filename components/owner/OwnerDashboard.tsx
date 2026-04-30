@@ -11,6 +11,51 @@ import { PlusCircle, Wallet, Car, AlertTriangle, Camera, Trash2, ScanLine } from
 import { toast } from "sonner";
 import { QRScannerModal } from "./QRScannerModal";
 
+function ActiveBookingCard({ b, onReport }: { b: any, onReport: () => void }) {
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!b.started_at) return;
+    const durationMs = b.duration_hours * 3600000;
+    const endTime = new Date(b.started_at).getTime() + durationMs;
+    
+    const updateTimer = () => {
+      const diff = endTime - Date.now();
+      setRemaining(diff <= 0 ? 0 : Math.floor(diff / 1000));
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [b.started_at, b.duration_hours]);
+
+  const isWarning = remaining !== null && remaining > 0 && remaining <= 300;
+  const isOverstay = remaining === 0;
+
+  return (
+    <div className={`bg-card border p-4 rounded-xl flex gap-4 items-center shadow-sm transition-all ${isWarning ? 'animate-pulse border-red-500 shadow-red-500/20' : isOverstay ? 'border-red-500 bg-red-500/5' : 'border-border hover:border-red-500/30'}`}>
+      <div className={`w-14 h-14 rounded-lg flex items-center justify-center border shrink-0 ${isWarning || isOverstay ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-muted border-border text-muted-foreground'}`}>
+        <Car size={24} />
+      </div>
+      <div className="flex-1">
+        <h4 className="font-bold text-sm tracking-wide">{b.carNumber || "Unknown Registration"}</h4>
+        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Spot: {b.spaceType || b.spaceTitle}</p>
+        <div className="text-xs font-bold mt-1 text-primary flex items-center gap-2">
+          <span>Duration: {b.duration_hours}h</span>
+          {remaining !== null && (
+            <span className={`font-mono ${isWarning || isOverstay ? 'text-red-500' : 'text-muted-foreground'}`}>
+              ({Math.floor(remaining / 3600).toString().padStart(2, '0')}:{Math.floor((remaining % 3600) / 60).toString().padStart(2, '0')}:{(remaining % 60).toString().padStart(2, '0')} left)
+            </span>
+          )}
+        </div>
+      </div>
+      <Button onClick={onReport} variant="outline" size="sm" className="border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-600 font-bold px-3">
+        Report
+      </Button>
+    </div>
+  );
+}
+
 export function OwnerDashboard() {
   const { spots, bookings, addOverstayReport, removeSpot, userInfo } = useAppContext();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -117,19 +162,7 @@ export function OwnerDashboard() {
         <div className="mt-8 space-y-4 animate-in fade-in duration-500">
           <h2 className="text-xl font-bold tracking-tight">Current Parked Vehicles</h2>
           {activeBookings.map((b: any) => (
-            <div key={b.id} className="bg-card border border-border p-4 rounded-xl flex gap-4 items-center shadow-sm hover:border-red-500/30 transition-all">
-              <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center border border-border shrink-0">
-                <Car size={24} className="text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-sm tracking-wide">{b.carNumber || "Unknown Registration"}</h4>
-                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Spot: {b.spaceType || b.spaceTitle}</p>
-                <p className="text-xs font-bold mt-1 text-primary">Duration: {b.duration_hours}h</p>
-              </div>
-              <Button onClick={() => setReportModalOpen(true)} variant="outline" size="sm" className="border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-600 font-bold px-3">
-                Report
-              </Button>
-            </div>
+            <ActiveBookingCard key={b.id} b={b} onReport={() => setReportModalOpen(true)} />
           ))}
         </div>
       )}

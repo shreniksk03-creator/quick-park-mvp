@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import QRCode from "react-qr-code";
 
@@ -33,6 +33,17 @@ export function ReceiptModal({ show, onClose, bookingId, bookingData }: ReceiptM
               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">Loading QR...</div>
             )}
           </div>
+
+          {bookingData?.parking_spaces?.latitude && bookingData?.parking_spaces?.longitude && (
+            <a 
+              href={`https://www.google.com/maps/dir/?api=1&destination=${bookingData.parking_spaces.latitude},${bookingData.parking_spaces.longitude}`} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="w-full mb-6 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 shadow-sm border border-blue-500/20 transition-all"
+            >
+              <MapPin size={18}/> Get Directions
+            </a>
+          )}
 
           {bookingData ? (
             <div className="w-full space-y-3">
