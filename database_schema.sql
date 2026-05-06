@@ -50,3 +50,7 @@ CREATE TABLE support_tickets (
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- RLS Policy for Owners to update Bookings
+-- CREATE POLICY "Owners can update bookings for their spaces" ON bookings FOR UPDATE TO authenticated USING (space_id IN (SELECT id FROM parking_spaces WHERE owner_id = auth.uid()));
+

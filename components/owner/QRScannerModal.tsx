@@ -42,10 +42,11 @@ export function QRScannerModal({ open, onOpenChange }: { open: boolean; onOpenCh
           .eq("id", result);
           
         if (updateError) {
-          toast.error("Failed to start session. Check permissions.");
+          toast.error('Failed to start timer in database. Check RLS policies.');
           throw updateError;
         }
         
+        toast.success('Scan successful! Timer started.');
         setBookingData(data);
         setScanResult("success");
       } else if (data.status === "active" || data.status === "overstay") {

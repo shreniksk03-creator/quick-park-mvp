@@ -161,7 +161,14 @@ function BookingsContent() {
         table: 'bookings',
         filter: role === 'driver' ? `driver_id=eq.${userInfo.id}` : undefined,
       }, (payload) => {
-        setDbBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b));
+        setDbBookings(prev => {
+          const oldBooking = prev.find(b => b.id === payload.new.id);
+          // Only show the toast if the booking was just scanned/activated
+          if (role === 'driver' && oldBooking && oldBooking.status === 'paid' && payload.new.status === 'active') {
+            toast.success('Your host scanned your code. Your time starts now!');
+          }
+          return prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b);
+        });
       })
       .subscribe();
 
