@@ -11,6 +11,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isVerifying, setIsVerifying] = useState(true);
 
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
+
   useEffect(() => {
     // Clear residual Supabase PKCE hash fragments to prevent Next.js client-side loops
     if (typeof window !== "undefined" && window.location.hash) {
@@ -36,17 +38,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
         if (error || !data || !data.phone_number || !data.role) {
           console.error("Auth Guard check: Missing or incomplete user profile. Redirecting to onboarding.", error);
-          // Missing essential profile data -> FORCE ONBOARD with fallback driver role
+          if (mounted) setIsProfileIncomplete(true);
+          
           login("driver", { 
             id: session.user.id, 
             name: session.user.user_metadata?.full_name || "User", 
             email: session.user.email 
           });
+          
           if (pathname !== "/onboarding") {
             router.push("/onboarding");
           }
           return;
         }
+
+        if (mounted) setIsProfileIncomplete(false);
 
         // Successfully found complete profile
         login(data.role as any, { 
@@ -106,24 +112,33 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [login, pathname, router]);
 
   useEffect(() => {
-    if (!isVerifying && !isAuthenticated && pathname !== "/login" && pathname !== "/signup" && pathname !== "/onboarding") {
+    if (isVerifying) return;
+
+    if (isProfileIncomplete && pathname !== "/onboarding") {
+      router.replace("/onboarding");
+      return;
+    }
+
+    if (!isAuthenticated && pathname !== "/login" && pathname !== "/signup" && pathname !== "/onboarding") {
       router.replace("/login");
-    } else if (!isVerifying && isAuthenticated) {
+    } else if (isAuthenticated && !isProfileIncomplete) {
       if (role === "owner" && (pathname === "/" || pathname === "/map")) {
         router.replace("/owner-dashboard");
       } else if (role === "driver" && (pathname === "/owner-dashboard" || pathname === "/owner-transactions")) {
         router.replace("/");
       }
     }
-  }, [isVerifying, isAuthenticated, role, pathname, router]);
+  }, [isVerifying, isAuthenticated, role, pathname, router, isProfileIncomplete]);
 
   if (isVerifying) {
     if (pathname === "/login" || pathname === "/signup") {
-       // We let these components handle their own verifying spinner manually or we can block here
-       // wait! We SHOULD block rendering the login wrapper itself
        return <div className="h-screen w-full bg-background flex flex-col items-center justify-center text-primary font-bold"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>Verifying profile...</div>;
     }
     return <div className="h-screen w-full bg-background flex flex-col items-center justify-center text-primary font-bold">Verifying Session...</div>;
+  }
+
+  if (isProfileIncomplete && pathname !== "/onboarding") {
+    return null; // Block rendering children while redirecting to onboarding
   }
 
   // If not authenticated and trying to access protected route
