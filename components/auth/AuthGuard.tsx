@@ -34,7 +34,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           .eq("id", session.user.id)
           .single();
 
-        if (error || !data || !data.phone_number || !data.role) {
+        if (error) {
+          console.error("Auth Guard database check failed:", error);
+          return;
+        }
+
+        if (!data || !data.phone_number || !data.role) {
           // Missing essential profile data -> FORCE ONBOARD with fallback driver role
           login("driver", { 
             id: session.user.id, 
@@ -93,7 +98,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED") return;
       checkSession(session);
     });
 

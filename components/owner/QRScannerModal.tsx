@@ -15,7 +15,7 @@ export function QRScannerModal({ open, onOpenChange }: { open: boolean; onOpenCh
   const handleScan = async (detectedCodes: any[]) => {
     if (isProcessing || scanResult || !detectedCodes || detectedCodes.length === 0) return;
     
-    const result = detectedCodes[0].rawValue;
+    const result = detectedCodes[0]?.rawValue?.trim();
     if (!result) return;
 
     setIsProcessing(true);
@@ -97,8 +97,11 @@ export function QRScannerModal({ open, onOpenChange }: { open: boolean; onOpenCh
               
               <Scanner 
                 onScan={handleScan}
+                onError={(error) => console.error("QR Scan Error:", error)}
                 formats={["qr_code"]}
+                scanDelay={100}
                 styles={{ container: { width: "100%", height: "100%" } }}
+                components={{ finder: true }}
               />
             </div>
 
