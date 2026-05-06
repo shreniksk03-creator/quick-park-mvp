@@ -34,8 +34,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           .eq("id", session.user.id)
           .single();
 
-        if (error) {
-          console.error("Auth Guard database check failed:", error);
+        if (error || !data) {
+          console.error("Auth Guard database check failed or user missing:", error);
+          await supabase.auth.signOut();
+          router.push("/login");
           return;
         }
 
