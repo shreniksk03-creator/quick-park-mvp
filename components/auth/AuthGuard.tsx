@@ -34,14 +34,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           .eq("id", session.user.id)
           .single();
 
-        if (error || !data) {
-          console.error("Auth Guard database check failed or user missing:", error);
-          await supabase.auth.signOut();
-          router.push("/login");
-          return;
-        }
-
-        if (!data || !data.phone_number || !data.role) {
+        if (error || !data || !data.phone_number || !data.role) {
+          console.error("Auth Guard check: Missing or incomplete user profile. Redirecting to onboarding.", error);
           // Missing essential profile data -> FORCE ONBOARD with fallback driver role
           login("driver", { 
             id: session.user.id, 
