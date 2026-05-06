@@ -57,17 +57,18 @@ export default function OnboardingPage() {
     setIsLoading(true);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = userInfo?.id || sessionData?.session?.user?.id;
-
-      if (!userId) {
-        throw new Error("No active session ID found. Please re-login.");
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user || !user.id || !user.email) {
+        toast.error("Your session has expired or is invalid. Please log in again.");
+        setIsLoading(false);
+        return;
       }
 
       const { error: sbErr } = await supabase.from('users').upsert({
-        id: sessionData?.session?.user?.id, 
-        email: sessionData?.session?.user?.email, 
-        name: name,
+        id: user.id, 
+        email: user.email, 
+        name: name || user.user_metadata?.full_name || "User",
         phone_number: phone,
         role: role,
         car_number: role === 'driver' ? carNumber : null 
@@ -79,9 +80,9 @@ export default function OnboardingPage() {
 
       // Update local context
       const userState = { 
-        id: userId, 
-        name: name || "User", 
-        email: userInfo?.email || sessionData?.session?.user?.email || "user@quickpark.com", 
+        id: user.id, 
+        name: name || user.user_metadata?.full_name || "User", 
+        email: user.email, 
         phone, 
         car_number: carNumber 
       };
