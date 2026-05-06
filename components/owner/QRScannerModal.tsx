@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { CheckCircle2, XCircle, Scan, Car } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 export function QRScannerModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [scanResult, setScanResult] = useState<"success" | "error" | null>(null);
@@ -40,7 +41,10 @@ export function QRScannerModal({ open, onOpenChange }: { open: boolean; onOpenCh
           .update({ status: 'active', started_at: new Date().toISOString() })
           .eq("id", result);
           
-        if (updateError) throw updateError;
+        if (updateError) {
+          toast.error("Failed to start session. Check permissions.");
+          throw updateError;
+        }
         
         setBookingData(data);
         setScanResult("success");
@@ -87,7 +91,7 @@ export function QRScannerModal({ open, onOpenChange }: { open: boolean; onOpenCh
               </Button>
             </div>
             
-            <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center">
+            <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center [&_video]:w-full [&_video]:h-full [&_video]:object-cover">
               {isProcessing && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm flex-col">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mb-4"></div>

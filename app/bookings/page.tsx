@@ -152,6 +152,22 @@ function BookingsContent() {
       }
     };
     fetchBookings();
+
+    const channel = supabase
+      .channel('bookings_realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'bookings',
+        filter: role === 'driver' ? `driver_id=eq.${userInfo.id}` : undefined,
+      }, (payload) => {
+        setDbBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userInfo?.id, role, refreshKey]);
 
   const handleEndSession = async (bookingId: string) => {
